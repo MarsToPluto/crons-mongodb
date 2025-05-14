@@ -1,0 +1,29 @@
+# docker-compose.yml
+version: '3.6'
+
+services:
+  mongodb:
+    # Instead of 'image: mongo:latest', we now use 'build'
+    build: .  # This tells Docker Compose to look for a Dockerfile in the current directory (.)
+    container_name: my-mongodb
+
+    ports:
+       - "27017:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: plutonium
+      MONGO_INITDB_ROOT_PASSWORD: xxx # Make sure this is your actual strong password
+    volumes:
+      - mongo_data:/data/db
+
+    networks:
+      - my-shared-app-network
+
+    restart: always
+
+volumes:
+  mongo_data:
+
+networks:
+  my-shared-app-network:
+    driver: bridge

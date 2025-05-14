@@ -1,0 +1,85 @@
+version: '3.8' # Updated to a more recent version
+
+services:
+  mongo1:
+    build: . # Assumes your Dockerfile (for adding 'zip') is in the current directory
+    container_name: mongo1
+    hostname: mongo1 # Good practice for replica set members
+    ports:
+      - "27017:27017" # Primary node, standard port mapping
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: plutonium
+      MONGO_INITDB_ROOT_PASSWORD: xxx # Use your actual strong password
+    volumes:
+      - mongo1_data:/data/db
+    networks:
+      - my-shared-app-network
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"] # Start with replica set option
+    restart: always
+
+  mongo2:
+    build: .
+    container_name: mongo2
+    hostname: mongo2
+    ports:
+      - "27018:27017" # Map to a different host port
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: plutonium
+      MONGO_INITDB_ROOT_PASSWORD: xxx
+    volumes:
+      - mongo2_data:/data/db
+    networks:
+      - my-shared-app-network
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    restart: always
+
+  mongo3:
+    build: .
+    container_name: mongo3
+    hostname: mongo3
+    ports:
+      - "27019:27017" # Map to another different host port
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: plutonium
+      MONGO_INITDB_ROOT_PASSWORD: xxx
+    volumes:
+      - mongo3_data:/data/db
+    networks:
+      - my-shared-app-network
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    restart: always
+
+  mongo-init-replica:
+    build: . # Needs mongosh, so use the same image (which includes it and 'zip')
+    container_name: mongo-init-replica
+    depends_on: # Wait for all mongo nodes to be started (doesn't mean ready)
+      - mongo1
+      - mongo2
+      - mongo3
+    volumes:
+      - ./init-replica.sh:/scripts/init-replica.sh # Mount the script
+    # Pass credentials to the init script if needed
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: plutonium
+      MONGO_INITDB_ROOT_PASSWORD: xxx
+    # entrypoint: [ "bash", "-c", "sleep 20 && /scripts/init-replica.sh" ] # Add delay to allow mongod instances to fully start
+    # A better entrypoint that explicitly waits for mongo1:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        echo "Init script container started. Waiting a bit for other mongo nodes..."
+        sleep 15 # Initial wait for mongod processes to launch
+        /scripts/init-replica.sh
+    networks:
+      - my-shared-app-network
+    restart: "no" # This service should run once and exit successfully
+
+volumes:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
+
+networks:
+  my-shared-app-network:
+    driver: bridge
